@@ -20,6 +20,7 @@ echo "Fiction novels" > "$BASE/bookstore/books/inventory.txt"
 #copy maleware file and seccomp file to the isolated env.
 cp seccomp-poc "$BASE/bookstore/"
 cp maleware "$BASE/bookstore/"
+cp cleanup-run "$BASE/bookstore/"
 
 echo "Entering new namespaces"
 
@@ -34,7 +35,7 @@ echo "Entering new namespaces"
 
 sudo unshare --mount --pid --fork --mount-proc \
     env BASE="$BASE" \
-    bash -c '
+    bash -ec '
 
         echo "Inside namespace"
         echo "PID: $$"
@@ -53,27 +54,12 @@ sudo unshare --mount --pid --fork --mount-proc \
 
         # Change root and move the old root into the dirc "old_root"
         #make bookstore the new /
-        pivot_root . old_root
-
-        # Move to the new root
+       busybox pivot_root . old_root
         cd /
-
-        umount -l /old_root
 
         echo
         echo "New root filesystem"
-        ls /
-
-        echo
-        echo "Reading inventory"
-        cat /books/inventory.txt
-
-        echo
-        echo "Namespace test complete"
-
-        echo
         echo "Running maleware with seccomp limitations"
 
-        #
-        ./seccomp-poc ./maleware
+        exec ./cleanup-run ./seccomp-poc ./maleware
     '
