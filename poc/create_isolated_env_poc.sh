@@ -39,11 +39,11 @@ sudo unshare --mount --pid --fork --mount-proc \
         echo "Inside namespace"
         echo "PID: $$"
 
+        # Prevent mount from "hurting" the host
+        mount --make-rprivate /
+
         # moved booksore dirc into the isolated file system (Make bookstore a mount point)
         mount --bind "$BASE/bookstore" "$BASE/bookstore"
-
-        # Prevent mount from "hurting" the host
-        mount --make-private "$BASE/bookstore"
 
         # Move into the bookstore dict
         cd "$BASE/bookstore"
@@ -57,6 +57,8 @@ sudo unshare --mount --pid --fork --mount-proc \
 
         # Move to the new root
         cd /
+
+        umount -l /old_root
 
         echo
         echo "New root filesystem"
@@ -73,5 +75,5 @@ sudo unshare --mount --pid --fork --mount-proc \
         echo "Running maleware with seccomp limitations"
 
         #
-        ./seccomp-poc ./malware
+        ./seccomp-poc ./maleware
     '
