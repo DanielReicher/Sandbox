@@ -3,6 +3,9 @@
 #if a command fails the script will keep running
 set -e
 
+echo "downloading and updating busybox command if needed-"
+echo ""
+
 #download commands for isolated system.
 sudo apt update && sudo apt install -y busybox-static
 
@@ -68,14 +71,14 @@ echo "Entering new namespaces..."
 #bash -c- starts bash and execute the commands in the ''
 
 
-sudo unshare --mount --pid --uts --fork --mount-proc \
+sudo unshare --mount --pid --uts --net --fork --mount-proc \
     env BASE="$BASE" FILENAME="$FILENAME" PIVOT_ROOT="$PIVOT_ROOT" \
     bash -c '
 
         echo "Inside namespaces:"
         echo "PID: $$"
 
-        #change hostname and domainnaim.
+        #change hostname and domain.
 
         hostname sandbox-hila-daniel
         domainname -b sandbox-hila-daniel-domain
@@ -85,12 +88,15 @@ sudo unshare --mount --pid --uts --fork --mount-proc \
         lsns -t uts -o NS,PID,USER
         echo
 
+        #for loopback/localhost communication
+        ip link set lo up
 
         #move sandbox folder into the isolated file system.
         mount --bind "$BASE/sandbox" "$BASE/sandbox"
 
         #prevent mount from "hurting" the host
         mount --make-private "$BASE/sandbox"
+
 
         #move into sandbox directory.
         cd "$BASE/sandbox"    
@@ -112,7 +118,17 @@ sudo unshare --mount --pid --uts --fork --mount-proc \
         echo "New root filesystem:"
         ls /
 
-        echo "Executing the isolated file:"
+        echo "Testing loopback:"
+        busybox ping -c 1 127.0.0.1
+
+        echo "Testing external network:"
+        if busybox ping -c 1 -W 2 1.1.1.1; then
+            echo "error: External network is reachable"
+        else
+            echo "External network is unreachable"
+        fi
+
+        echo "Executing the file in the isolated environment:"
         #run file in isolated enviroment with busybox.
         sh /"$FILENAME"
 
