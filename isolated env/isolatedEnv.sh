@@ -73,7 +73,7 @@ echo "Entering new namespaces..."
 #--mape-root-user - map UID 0 (root) inside the namespace to UID 1000 on the host system
 
 
-sudo unshare --mount --pid --uts --net --user --map-root-user --fork --mount-proc \
+sudo unshare --mount --pid --uts --net --user --map-root-user --ipc --fork --mount-proc \
     env BASE="$BASE" FILENAME="$FILENAME" PIVOT_ROOT="$PIVOT_ROOT" \
     bash -c '
 
