@@ -70,8 +70,10 @@ echo "Entering new namespaces..."
 #env- creates an environment named "BASE"
 #bash -c- starts bash and execute the commands in the ''
 
+#--mape-root-user - map UID 0 (root) inside the namespace to UID 1000 on the host system
 
-sudo unshare --mount --pid --uts --net --fork --mount-proc \
+
+sudo unshare --mount --pid --uts --net --user --map-root-user --fork --mount-proc \
     env BASE="$BASE" FILENAME="$FILENAME" PIVOT_ROOT="$PIVOT_ROOT" \
     bash -c '
 
