@@ -59,7 +59,6 @@ echo "pivot_root found at: $PIVOT_ROOT"
 
 echo "Entering new namespaces..."
 
-#sudo- root privileges
 #unshare- creates new Linux namespaces for the process
 #--mount-  creates a new mount namespace
 #--pid- creates a new PID namespace
@@ -73,7 +72,7 @@ echo "Entering new namespaces..."
 #--mape-root-user - map UID 0 (root) inside the namespace to UID 1000 on the host system
 
 
-sudo unshare --mount --pid --uts --net --user --map-root-user --ipc --fork --mount-proc \
+unshare --mount --pid --uts --net --user --map-root-user --ipc --fork --mount-proc \
     env BASE="$BASE" FILENAME="$FILENAME" PIVOT_ROOT="$PIVOT_ROOT" \
     bash -c '
 
@@ -89,6 +88,28 @@ sudo unshare --mount --pid --uts --net --user --map-root-user --ipc --fork --mou
         echo "After changing the UTS:"
         lsns -t uts -o NS,PID,USER
         echo
+
+        echo "Testing IPC namespace:"
+        readlink /proc/self/ns/ipc
+        lsns -t ipc -o NS,PID,USER
+        ipcs
+
+        echo "Testing User namespace:"
+        id
+        readlink /proc/self/ns/user
+        lsns -t user -o NS,PID,USER
+
+        echo "Current identity:"
+        id
+
+        echo "User namespace:"
+        readlink /proc/self/ns/user
+
+        echo "UID mapping:"
+        while read -r line; do echo "$line"; done < /proc/self/uid_map
+
+        echo "GID mapping:"
+        while read -r line; do echo "$line"; done < /proc/self/gid_map
 
         #for loopback/localhost communication
         ip link set lo up
