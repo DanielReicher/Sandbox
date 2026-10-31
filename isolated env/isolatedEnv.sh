@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#if a command fails the script will keep running
+#if a command fails the script will not keep running
 set -e
 
 echo "downloading and updating busybox command if needed-"
@@ -33,12 +33,34 @@ FILENAME=$(basename "$filePath")
 
 #give running premissions to file.
 chmod +x "$SANDBOX_DIR/$FILENAME"
+ 
+#copy the seccomp file into the isolated env
+cp ./seccomps "$SANDBOX_DIR/"
+
+#give running premissions to file.
+chmod +x "$SANDBOX_DIR/seccomps"
+
+# create directories for Seccomp shared libraries
+mkdir -p "$SANDBOX_DIR/usr/lib/x86_64-linux-gnu"
+mkdir -p "$SANDBOX_DIR/lib64"
+
+#copy Seccomp and C runtime libraries into the sandbox
+cp -L /usr/lib/x86_64-linux-gnu/libseccomp.so.2 \
+    "$SANDBOX_DIR/usr/lib/x86_64-linux-gnu/"
+
+cp -L /usr/lib/x86_64-linux-gnu/libc.so.6 \
+    "$SANDBOX_DIR/usr/lib/x86_64-linux-gnu/"
+
+#copy the dynamic linker
+cp -L /lib64/ld-linux-x86-64.so.2 \
+    "$SANDBOX_DIR/lib64/"
 
 #append minimal commands for isolated system.
 cp /bin/busybox "$SANDBOX_DIR/bin/"
 ln -sf busybox "$SANDBOX_DIR/bin/sh"
 ln -sf busybox "$SANDBOX_DIR/bin/ls"
 ln -sf busybox "$SANDBOX_DIR/bin/echo"
+ln -sf busybox "$SANDBOX_DIR/bin/umount"
 
 #find pivot_root
 PIVOT_ROOT=$(command -v pivot_root || true)
@@ -135,6 +157,9 @@ unshare --mount --pid --uts --net --user --map-root-user --ipc --fork --mount-pr
         #move to the new root
         cd /
 
+        #remove access to the old root filesystem
+        umount -l /old_root
+
         #update path for commands.
         export PATH=/bin
 
@@ -153,7 +178,7 @@ unshare --mount --pid --uts --net --user --map-root-user --ipc --fork --mount-pr
 
         echo "Executing the file in the isolated environment:"
         #run file in isolated enviroment with busybox.
-        sh /"$FILENAME"
+        ./seccomps /bin/sh "/$FILENAME"
 
         echo
         echo "Namespace test complete"
