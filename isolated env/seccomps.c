@@ -9,6 +9,7 @@
 int handle_seccomp()
 {
     int succeded = 1;
+
     //allowing all syscalls as the deafault.
     scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW);
 
@@ -23,11 +24,11 @@ int handle_seccomp()
     if(block_hardware_syscalls(ctx) == -1)
         return -1;
 
-    if(block_hardware_syscalls(ctx) == -1)
+    if(block_root_access_syscalls(ctx) == -1)
         return -1;
     
-    if(block_hardware_syscalls(ctx) == -1)
-        return -1;
+    //if(block_hardware_syscalls(ctx) == -1)
+       // return -1;
     
     //release seccomps.
     seccomp_release(ctx);
@@ -171,6 +172,7 @@ int block_root_access_syscalls(scmp_filter_ctx ctx)
 
 
 
+
 int main(int argc, char *argv[])
 {
     if(argc < 2)
@@ -180,7 +182,7 @@ int main(int argc, char *argv[])
     }
 
     //call function and block dengerous syscalls.
-    if(block_syscalls()<0)
+    if(handle_seccomp() == -1)
     {
         return 1;
     }
