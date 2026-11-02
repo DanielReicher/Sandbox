@@ -16,24 +16,22 @@ void check_syscall_block(const char* name, int result)
         printf("ERROR! %s not blocked! (errno: %d)\n", name, errno);
 }
 
-int main() {
-    printf("--- Starting Seccomp Test ---\n");
+int main() 
+{
+    printf("starting Seccomp Test...\n");
 
-    // 1. Hardware access test: ioctl
-    // שימוש בקריאה לא מזיקה ל-stdout כדי לבדוק חסימה
+    //hardware access test - ioctl (use stdout).
     int res_ioctl = ioctl(STDOUT_FILENO, TIOCGWINSZ, NULL);
     check_syscall_block("ioctl", res_ioctl);
 
-    // 2. Root access test: setuid
-    // ניסיון לשנות מזהה משתמש
+    //root access test - setuid (try change a users's id).
     int res_setuid = setuid(1000);
     check_syscall_block("setuid", res_setuid);
 
-    // 3. Process intervention test: kill
-    // שליחת סיגנל 0 לתהליך של עצמנו (בדרך כלל בודק אם התהליך קיים ומצליח תמיד)
+    //process intervention test - kill(sends signal 0 to our process, check if exists and supoused to work out).
     int res_kill = kill(getpid(), 0);
     check_syscall_block("kill", res_kill);
 
-    printf("--- Test Finished ---\n");
+    printf("\nTest Finished!\n");
     return 0;
 }
