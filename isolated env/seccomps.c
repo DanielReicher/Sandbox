@@ -127,14 +127,6 @@ int block_root_access_syscalls(scmp_filter_ctx ctx)
         return -1;
     }
 
-    // Block ptrace - detect after processes.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(ptrace), 0) < 0)
-    {
-        fprintf(stderr, "Failed to block ptrace\n");
-        seccomp_release(ctx);
-        return -1;
-    }
-
     //block mount - add/delete file trees from system.
     if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(mount), 0) < 0)
     {
@@ -158,6 +150,75 @@ int block_root_access_syscalls(scmp_filter_ctx ctx)
         seccomp_release(ctx);
         return -1;
     }
+
+    //load rules to the kernel.
+    if(seccomp_load(ctx) < 0)
+    {
+        fprintf(stderr, "Failed to load seccomp filter\n");
+        seccomp_release(ctx);
+        return -1;
+    }
+    seccomp_release(ctx);
+    return 0;
+}
+
+/*
+function blocks all interventio-in-processes syscalls with seccomp.
+*/
+int block_interventio_in_processes_syscalls(scmp_filter_ctx ctx)
+{
+
+    // Block ptrace - detect after processes.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(ptrace), 0) < 0)
+    {
+        fprintf(stderr, "Failed to block ptrace\n");
+        seccomp_release(ctx);
+        return -1;
+    }
+
+    //block process_vm_writev - copy data between memmory spaces of two proccesses.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(process_vm_writev), 0) < 0)
+    {
+        fprintf(stderr, "Failed to block process_vm_writev\n");
+        seccomp_release(ctx);
+        return -1;
+    }
+
+    //block process_vm_readv - mostly to steal information.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(process_vm_readv), 0) < 0)
+    {
+        fprintf(stderr, "Failed to block process_vm_readv\n");
+        seccomp_release(ctx);
+        return -1;
+    }
+
+    //block setns - allows current process to be apart of anoter process's namespaces
+    //and by that "escape the container".
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(setns), 0) < 0)
+    {
+        fprintf(stderr, "Failed to block setns\n");
+        seccomp_release(ctx);
+        return -1;
+    }
+
+    // Block unshare - isolates a process from the rest of the system 
+    //(to coduct things with no supervision - like rootkit.)
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(unshare), 0) < 0)
+    {
+        fprintf(stderr, "Failed to block unshare\n");
+        seccomp_release(ctx);
+        return -1;
+    }
+
+    //clock kill - sends signals to other processes
+    //if got a root premission - blocks him from killing processes.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(kill), 0) < 0)
+    {
+        fprintf(stderr, "Failed to block kill\n");
+        seccomp_release(ctx);
+        return -1;
+    }
+
 
     //load rules to the kernel.
     if(seccomp_load(ctx) < 0)
