@@ -4,15 +4,18 @@
 //allows profram to communicate with OS and effect process managment.
 #include <unistd.h>
 
-//function handles seccomp tech.
-int block_syscalls()
+
+/*
+function blocks all hardware-access syscalls with seccomp.
+*/
+int block_hardware_syscalls()
 {
     //allowing all syscalls as the deafault.
     scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW);
 
     if (ctx == NULL) //for debug
     {
-        fprintf(stderr, "Failed to initialize seccomp\n");
+        fprintf(stderr, "Failed to initialize seccomp (hardware func)\n");
         return -1;
     }
     //restrict ioctl - send dirct requests to the hardware syscall.
@@ -48,6 +51,55 @@ int block_syscalls()
     seccomp_release(ctx);
     return 0;
 }
+
+/*
+function blocks all root-access syscalls with seccomp.
+*/
+int block_root_access_syscalls()
+{
+    //allowing all syscalls as the deafault.
+    scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW);
+
+    if (ctx == NULL) //for debug
+    {
+        fprintf(stderr, "Failed to initialize seccomp(root func)\n");
+        return -1;
+    }
+    //restrict ioctl - send dirct requests to the hardware syscall.
+    if(seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(ioctl), 0) < 0)
+    {
+        fprintf(stderr, "Failed to block ioctl\n");
+        seccomp_release(ctx);
+        return -1;
+    }
+    // Block ioperm.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(ioperm), 0) < 0)
+    {
+        fprintf(stderr, "Failed to block ioperm\n");
+        seccomp_release(ctx);
+        return -1;
+    }
+
+    // Block iopl.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(iopl), 0) < 0)
+    {
+        fprintf(stderr, "Failed to block iopl\n");
+        seccomp_release(ctx);
+        return -1;
+    }
+
+    //load rules to the kernel.
+    if(seccomp_load(ctx) < 0)
+    {
+        fprintf(stderr, "Failed to load seccomp filter\n");
+        seccomp_release(ctx);
+        return -1;
+    }
+    seccomp_release(ctx);
+    return 0;
+}
+
+
 
 int main(int argc, char *argv[])
 {
