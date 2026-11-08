@@ -41,7 +41,7 @@ cp ./seccomps "$SANDBOX_DIR/"
 chmod +x "$SANDBOX_DIR/seccomps"
 
 #copy the test seccomp file into the isolated env
-cp ./testSecomps "$SANDBOX_DIR/"
+cp ./testSeccomps "$SANDBOX_DIR/"
 
 #give running premissions to file.
 chmod +x "$SANDBOX_DIR/testSeccomps"
