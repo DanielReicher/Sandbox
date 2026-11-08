@@ -1,257 +1,287 @@
+
 #include <seccomp.h>
 #include <errno.h>
 #include <stdio.h>
-//allows profram to communicate with OS and effect process managment.
 #include <unistd.h>
+#include <sys/mman.h>
+
+// Function declarations
+int handle_seccomp(void);
+int block_hardware_syscalls(scmp_filter_ctx ctx);
+int block_root_access_syscalls(scmp_filter_ctx ctx);
+int block_interventio_in_processes_syscalls(scmp_filter_ctx ctx);
+int block_memory_syscalls(scmp_filter_ctx ctx);
 
 
-
-int handle_seccomp()
+int handle_seccomp(void)
 {
-    int succeded = 1;
-
-    //allowing all syscalls as the deafault.
     scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW);
 
-    if (ctx == NULL) //for debug
+    if (ctx == NULL)
     {
-        fprintf(stderr, "Failed to initialize seccomp (hardware func)\n");
+        fprintf(stderr, "Failed to initialize seccomp\n");
         return -1;
     }
 
-    //block different types of syscalls + check if there was an error..
+    if (block_hardware_syscalls(ctx) == -1)
+        goto error;
 
-    if(block_hardware_syscalls(ctx) == -1)
-        return -1;
+    if (block_root_access_syscalls(ctx) == -1)
+        goto error;
 
-    if(block_root_access_syscalls(ctx) == -1)
-        return -1;
-    
-    //if(block_hardware_syscalls(ctx) == -1)
-       // return -1;
-    
-    //release seccomps.
+    if (block_interventio_in_processes_syscalls(ctx) == -1)
+        goto error;
+
+    if (block_memory_syscalls(ctx) == -1)
+        goto error;
+
+    // Load all rules into the kernel once.
+    if (seccomp_load(ctx) < 0)
+    {
+        fprintf(stderr, "Failed to load seccomp filter\n");
+        goto error;
+    }
+
     seccomp_release(ctx);
     return 0;
 
+error:
+    seccomp_release(ctx);
+    return -1;
 }
+
+
 /*
-function blocks all hardware-access syscalls with seccomp.
+Blocks hardware-access syscalls.
 */
 int block_hardware_syscalls(scmp_filter_ctx ctx)
 {
-    
-    //restrict ioctl - send dirct requests to the hardware syscall.
-    if(seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(ioctl), 0) < 0)
+    // Block ioctl.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(ioctl), 0) < 0)
     {
         fprintf(stderr, "Failed to block ioctl\n");
-        seccomp_release(ctx);
         return -1;
     }
+
     // Block ioperm.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(ioperm), 0) < 0)
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(ioperm), 0) < 0)
     {
         fprintf(stderr, "Failed to block ioperm\n");
-        seccomp_release(ctx);
         return -1;
     }
 
     // Block iopl.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(iopl), 0) < 0)
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(iopl), 0) < 0)
     {
         fprintf(stderr, "Failed to block iopl\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    //load rules to the kernel.
-    if(seccomp_load(ctx) < 0)
-    {
-        fprintf(stderr, "Failed to load seccomp filter\n");
-        seccomp_release(ctx);
-        return -1;
-    }
-   return 0;
+    return 0;
 }
 
+
 /*
-function blocks all root-access syscalls with seccomp.
+Blocks root-access and privileged syscalls.
 */
 int block_root_access_syscalls(scmp_filter_ctx ctx)
 {
-    //restrict setgid.
-    if(seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(setgid), 0) < 0)
+    // Block setgid.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(setgid), 0) < 0)
     {
         fprintf(stderr, "Failed to block setgid\n");
-        seccomp_release(ctx);
         return -1;
     }
-    //block setuid.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(setuid), 0) < 0)
+
+    // Block setuid.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(setuid), 0) < 0)
     {
         fprintf(stderr, "Failed to block setuid\n");
-        seccomp_release(ctx);
         return -1;
     }
-    
-    //block capset - change the process capabilities.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(capset), 0) < 0)
+
+    // Block capset.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(capset), 0) < 0)
     {
         fprintf(stderr, "Failed to block capset\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-
-    //block finit_module and init_module - load modules to kernel.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(finit_module), 0) < 0)
+    // Block finit_module.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(finit_module), 0) < 0)
     {
         fprintf(stderr, "Failed to block finit_module\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    //block init_module.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(init_module), 0) < 0)
+    // Block init_module.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(init_module), 0) < 0)
     {
         fprintf(stderr, "Failed to block init_module\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    //block delete_module - deletes a module from kernel.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(delete_module), 0) < 0)
+    // Block delete_module.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(delete_module), 0) < 0)
     {
         fprintf(stderr, "Failed to block delete_module\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    //block mount - add/delete file trees from system.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(mount), 0) < 0)
+    // Block mount.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(mount), 0) < 0)
     {
         fprintf(stderr, "Failed to block mount\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    //block chroot - changes root.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(chroot), 0) < 0)
+    // Block chroot.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(chroot), 0) < 0)
     {
         fprintf(stderr, "Failed to block chroot\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    // Block reboot - poweroff/restart device - used for Dos.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(reboot), 0) < 0)
+    // Block reboot.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(reboot), 0) < 0)
     {
         fprintf(stderr, "Failed to block reboot\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    //load rules to the kernel.
-    if(seccomp_load(ctx) < 0)
-    {
-        fprintf(stderr, "Failed to load seccomp filter\n");
-        seccomp_release(ctx);
-        return -1;
-    }
-    seccomp_release(ctx);
     return 0;
 }
 
+
 /*
-function blocks all interventio-in-processes syscalls with seccomp.
+Blocks interference with other processes.
 */
 int block_interventio_in_processes_syscalls(scmp_filter_ctx ctx)
 {
-
-    // Block ptrace - detect after processes.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(ptrace), 0) < 0)
+    // Block ptrace.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(ptrace), 0) < 0)
     {
         fprintf(stderr, "Failed to block ptrace\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    //block process_vm_writev - copy data between memmory spaces of two proccesses.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(process_vm_writev), 0) < 0)
+    // Block process_vm_writev.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(process_vm_writev), 0) < 0)
     {
         fprintf(stderr, "Failed to block process_vm_writev\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    //block process_vm_readv - mostly to steal information.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(process_vm_readv), 0) < 0)
+    // Block process_vm_readv.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(process_vm_readv), 0) < 0)
     {
         fprintf(stderr, "Failed to block process_vm_readv\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    //block setns - allows current process to be apart of anoter process's namespaces
-    //and by that "escape the container".
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(setns), 0) < 0)
+    // Block setns.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(setns), 0) < 0)
     {
         fprintf(stderr, "Failed to block setns\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    // Block unshare - isolates a process from the rest of the system 
-    //(to coduct things with no supervision - like rootkit.)
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(unshare), 0) < 0)
+    // Block unshare.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(unshare), 0) < 0)
     {
         fprintf(stderr, "Failed to block unshare\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-    //clock kill - sends signals to other processes
-    //if got a root premission - blocks him from killing processes.
-    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(kill), 0) < 0)
+    // Block kill.
+    if (seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(kill), 0) < 0)
     {
         fprintf(stderr, "Failed to block kill\n");
-        seccomp_release(ctx);
         return -1;
     }
 
-
-    //load rules to the kernel.
-    if(seccomp_load(ctx) < 0)
-    {
-        fprintf(stderr, "Failed to load seccomp filter\n");
-        seccomp_release(ctx);
-        return -1;
-    }
-    seccomp_release(ctx);
     return 0;
 }
 
 
+/*
+Blocks memory operations that request executable permissions.
+*/
+int block_memory_syscalls(scmp_filter_ctx ctx)
+{
+    // Block mprotect when PROT_EXEC is requested.
+    if (seccomp_rule_add(ctx,
+        SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(mprotect),
+        1,
+        SCMP_CMP(2, SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC)) < 0)
+    {
+        fprintf(stderr, "Failed to block executable mprotect\n");
+        return -1;
+    }
+
+    // Block pkey_mprotect when PROT_EXEC is requested.
+    if (seccomp_rule_add(ctx,
+        SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(pkey_mprotect),
+        1,
+        SCMP_CMP(2, SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC)) < 0)
+    {
+        fprintf(stderr, "Failed to block executable pkey_mprotect\n");
+        return -1;
+    }
+
+    // Block mmap when PROT_EXEC is requested.
+    if (seccomp_rule_add(ctx,
+        SCMP_ACT_ERRNO(EPERM),
+        SCMP_SYS(mmap),
+        1,
+        SCMP_CMP(2, SCMP_CMP_MASKED_EQ, PROT_EXEC, PROT_EXEC)) < 0)
+    {
+        fprintf(stderr, "Failed to block executable mmap\n");
+        return -1;
+    }
+
+    return 0;
+}
 
 
 int main(int argc, char *argv[])
 {
-    if(argc < 2)
+    if (argc < 2)
     {
-        printf("Usage: %s \n", argv[0]);
+        printf("Usage: %s <program> [arguments]\n", argv[0]);
         return 1;
     }
 
-    //call function and block dengerous syscalls.
-    if(handle_seccomp() == -1)
+    // Apply Seccomp restrictions.
+    if (handle_seccomp() == -1)
     {
+        fprintf(stderr, "Failed to apply seccomp restrictions\n");
         return 1;
     }
 
-    //call the isolated process with the new syscalls limitation.
+    // Execute the isolated process.
     execvp(argv[1], &argv[1]);
-    
+
     perror("execvp");
     return 1;
-
 }
