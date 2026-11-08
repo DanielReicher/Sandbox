@@ -40,6 +40,12 @@ cp ./seccomps "$SANDBOX_DIR/"
 #give running premissions to file.
 chmod +x "$SANDBOX_DIR/seccomps"
 
+#copy the test seccomp file into the isolated env
+cp ./testSeccomps "$SANDBOX_DIR/"
+
+#give running premissions to file.
+chmod +x "$SANDBOX_DIR/testSeccomps"
+
 # create directories for Seccomp shared libraries
 mkdir -p "$SANDBOX_DIR/usr/lib/x86_64-linux-gnu"
 mkdir -p "$SANDBOX_DIR/lib64"
@@ -179,6 +185,7 @@ unshare --mount --pid --uts --net --user --map-root-user --ipc --fork --mount-pr
         echo "Executing the file in the isolated environment:"
         #run file in isolated enviroment with busybox.
         ./seccomps /bin/sh "/$FILENAME"
+        ./testSeccomps
 
         echo
         echo "Namespace test complete"
