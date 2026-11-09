@@ -79,6 +79,16 @@ int main(int argc, char *argv[])
 
     if (drop_capability(cap, CAP_NET_RAW, "CAP_NET_RAW") == -1)
         goto error;
+    
+    if (drop_capability(cap, CAP_DAC_OVERRIDE, "CAP_DAC_OVERRIDE") == -1)
+        goto error;
+
+    if (drop_capability(cap, CAP_SYS_MODULE, "CAP_SYS_MODULE") == -1)
+        goto error;
+
+    if (drop_capability(cap, CAP_NET_RAW, "CAP_NET_RAW") == -1)
+        goto error;
+
 
     cap_free(cap);
 
