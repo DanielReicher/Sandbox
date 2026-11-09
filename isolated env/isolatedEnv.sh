@@ -45,6 +45,17 @@ cp ./testSeccomps "$SANDBOX_DIR/"
 
 #give running premissions to file.
 chmod +x "$SANDBOX_DIR/testSeccomps"
+ 
+#copy the file into the isolated env
+cp ./capabilities "$SANDBOX_DIR/"
+
+#give running premissions to file.
+chmod +x "$SANDBOX_DIR/capabilities"
+
+sed -i 's/\r$//' ./testCapabilities.sh
+cp ./testCapabilities.sh "$SANDBOX_DIR/"
+
+chmod +x "$SANDBOX_DIR/testCapabilities.sh"
 
 # create directories for Seccomp shared libraries
 mkdir -p "$SANDBOX_DIR/usr/lib/x86_64-linux-gnu"
@@ -60,6 +71,10 @@ cp -L /usr/lib/x86_64-linux-gnu/libc.so.6 \
 #copy the dynamic linker
 cp -L /lib64/ld-linux-x86-64.so.2 \
     "$SANDBOX_DIR/lib64/"
+
+cp -L /lib/x86_64-linux-gnu/libcap.so.2 \
+    "$SANDBOX_DIR/usr/lib/x86_64-linux-gnu/"
+
 
 #append minimal commands for isolated system.
 cp /bin/busybox "$SANDBOX_DIR/bin/"
@@ -184,8 +199,14 @@ unshare --mount --pid --uts --net --user --map-root-user --ipc --fork --mount-pr
 
         echo "Executing the file in the isolated environment:"
         #run file in isolated enviroment with busybox.
-        ./seccomps /bin/sh "/$FILENAME"
-        ./testSeccomps
+        # Test capabilities
+        ./capabilities ./testCapabilities
+
+        # Test seccomp
+        ./capabilities ./seccomps /testSeccomps
+
+        # Run the target file
+        ./capabilities ./seccomps /bin/sh "/$FILENAME"
 
         echo
         echo "Namespace test complete"
