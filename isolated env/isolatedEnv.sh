@@ -23,6 +23,10 @@ fi
 BASE="$(pwd)"
 SANDBOX_DIR="$BASE/sandbox"
 
+mkdir -p "$SANDBOX_DIR"
+sudo mount -t tmpfs tmpfs "$SANDBOX_DIR"
+
+
 #create basic folders for isolated enviorment.
 mkdir -p "$SANDBOX_DIR/bin"
 mkdir -p "$SANDBOX_DIR/old_root"
@@ -74,7 +78,6 @@ cp -L /lib64/ld-linux-x86-64.so.2 \
 
 cp -L /lib/x86_64-linux-gnu/libcap.so.2 \
     "$SANDBOX_DIR/usr/lib/x86_64-linux-gnu/"
-
 
 #append minimal commands for isolated system.
 cp /bin/busybox "$SANDBOX_DIR/bin/"
@@ -200,7 +203,7 @@ unshare --mount --pid --uts --net --user --map-root-user --ipc --fork --mount-pr
         echo "Executing the file in the isolated environment:"
         #run file in isolated enviroment with busybox.
         # Test capabilities
-        ./capabilities ./testCapabilities
+        ./capabilities /bin/sh ./testCapabilities.sh
 
         # Test seccomp
         ./capabilities ./seccomps /testSeccomps
