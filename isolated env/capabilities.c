@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
     if (drop_capability(cap, CAP_SYS_PTRACE, "CAP_SYS_MODULE") == -1)
         goto error;
 
-    if (drop_capability(cap, CAP_NET_RAW, "CAP_NET_RAW") == -1)
+    if (drop_capability(cap, CAP_NET_RAW, "CAP_SYS_BOOT") == -1)
         goto error;
 
     cap_free(cap);
