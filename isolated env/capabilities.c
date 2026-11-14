@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
     if (drop_capability(cap, CAP_SYS_ADMIN, "CAP_DAC_OVERRIDE") == -1)
         goto error;
 
-    if (drop_capability(cap, CAP_SYS_PTRACE, "CAP_SYS_PTRACE") == -1)
+    if (drop_capability(cap, CAP_SYS_PTRACE, "CAP_SYS_MODULE") == -1)
         goto error;
 
     if (drop_capability(cap, CAP_NET_RAW, "CAP_NET_RAW") == -1)
