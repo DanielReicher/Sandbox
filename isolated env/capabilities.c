@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
     if (drop_capability(cap, CAP_SYS_PTRACE, "CAP_SETGID") == -1)
         goto error;
 
-    if (drop_capability(cap, CAP_NET_RAW, "CAP_SETUID") == -1)
+    if (drop_capability(cap, CAP_NET_RAW, "CAP_SETFCAP") == -1)
         goto error;
 
     cap_free(cap);
